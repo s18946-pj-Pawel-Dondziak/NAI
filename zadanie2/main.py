@@ -1,10 +1,17 @@
 """
-This app uses fuzzy control system, it lets you see if your meat is ready
-temperature, mass and time that is left are needed
+Jakub Świderski s19443
+Paweł Dondziak s18946
+This app uses fuzzy control system, to determine the process of meat preparation in electric oven.
+The program takes three numeric variables:
+  - Temperature
+  - Mass
+  - Time
 To properly run the app install : scikit-fuzzy and matplotlib
 You can use these commands:
 pip install scikit-fuzzy
 pip install matplotlib
+
+skfuzzy documentation : https://scikit-fuzzy.readthedocs.io/en/latest/
 """
 
 from matplotlib import pyplot as plt
@@ -14,12 +21,12 @@ from skfuzzy import control as ctrl
 
 # definition of input variables
 # temperature is given in celsius, mass in kilograms, time in minutes
-temperature = ctrl.Antecedent(np.arange(100, 301, 10), 'temperature')
-mass = ctrl.Antecedent(np.arange(0.5, 4, 0.1), 'mass')
-time = ctrl.Antecedent(np.arange(10, 101, 10), 'time')
+temperature = ctrl.Antecedent(np.arange(100, 320, 1), 'temperature')
+mass = ctrl.Antecedent(np.arange(1, 3.1, 0.1), 'mass')
+time = ctrl.Antecedent(np.arange(0, 120, 1), 'time')
 
 # definition of output variables
-preparationType = ctrl.Consequent(np.arange(0, 121, 1), 'preparationType')
+preparationType = ctrl.Consequent(np.arange(0, 101, 1), 'preparationType')
 
 # Auto-membership function population is possible with .automf(3, 5, or 7)
 temperature.automf(3)
@@ -28,13 +35,9 @@ time.automf(3)
 
 # Custom membership functions can be built interactively with a familiar,
 # Pythonic API
-preparationType['NotDone'] = fuzz.trimf(preparationType.universe, [0, 0, 55])
-preparationType['Rare'] = fuzz.trimf(preparationType.universe, [50, 55, 65])
-preparationType['MediumRare'] = fuzz.trimf(preparationType.universe, [60, 65, 75])
-preparationType['Medium'] = fuzz.trimf(preparationType.universe, [70, 75, 85])
-preparationType['MediumWell'] = fuzz.trimf(preparationType.universe, [80, 85, 95])
-preparationType['WellDone'] = fuzz.trimf(preparationType.universe, [90, 95, 105])
-preparationType['OverDone'] = fuzz.trimf(preparationType.universe, [100, 120, 120])
+preparationType['Raw'] = fuzz.trimf(preparationType.universe, [0, 0, 50])
+preparationType['Medium'] = fuzz.trimf(preparationType.universe, [40, 65, 85])
+preparationType['WellDone'] = fuzz.trimf(preparationType.universe, [70, 100, 100])
 
 
 temperature.view()
@@ -43,34 +46,26 @@ time.view()
 preparationType.view()
 
 # if we have short time left, the temperature is high and mass is poor or medium, the meat is overcooked
-rule1 = ctrl.Rule(time['poor'] & temperature['good'], preparationType['OverDone'])
 
-rule2 = ctrl.Rule(time['poor'] & (temperature['average'] | temperature['good'])
-                  & (mass['average'] | mass['good']), preparationType['WellDone'])
+rule1 = ctrl.Rule(time['poor'], preparationType['Raw'])
+rule2 = ctrl.Rule(time['average'] & mass['good'], preparationType['Raw'])
+rule3 = ctrl.Rule(time['average'] & temperature['good'], preparationType['Medium'])
+rule4 = ctrl.Rule(time['average'], preparationType['Medium'])
+rule5 = ctrl.Rule(time['good'] & temperature['poor'], preparationType['Medium'])
+rule6 = ctrl.Rule(time['good'] & mass['poor'], preparationType['Medium'])
+rule7 = ctrl.Rule(time['average'] & (temperature['good'] | mass['poor']), preparationType['WellDone'])
+rule8 = ctrl.Rule(time['good'], preparationType['WellDone'])
 
-rule3 = ctrl.Rule(time['average'] & temperature['average'] & mass['average'], preparationType['MediumWell'])
-
-rule4 = ctrl.Rule(time['average'] & temperature['average'], preparationType['Medium'])
-
-rule5 = ctrl.Rule(time['average'] & temperature['average'] & (mass['average'] | mass['poor'])
-                  | (time['average'] & temperature['good'] & mass['good']), preparationType['MediumRare'])
-
-rule6 = ctrl.Rule((time['average'] & (mass['average'] | mass['poor']))
-                  | (time['average'] & temperature['average']), preparationType['Rare'])
-
-# if there is much time left, meat is not done yet
-rule7 = ctrl.Rule(time['good'], preparationType['NotDone'])
-
-prepType_ctrl = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5, rule6, rule7])
+prepType_ctrl = ctrl.ControlSystem([rule1, rule2, rule3, rule4, rule5, rule6, rule7, rule8])
 
 preparation = ctrl.ControlSystemSimulation(prepType_ctrl)
 
 
 # Pass inputs to the ControlSystem using Antecedent labels with Pythonic API
 # Note: if you like passing many inputs all at once, use .inputs(dict_of_data)
-preparation.input['temperature'] = 5
-preparation.input['mass'] = 5
-preparation.input['time'] = 5
+preparation.input['temperature'] = 280
+preparation.input['mass'] = 1.8
+preparation.input['time'] = 100
 
 # Crunch the numbers
 preparation.compute()
